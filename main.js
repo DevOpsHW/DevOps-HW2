@@ -28,9 +28,9 @@ var engine = Random.engines.mt19937().autoSeed();
 function createConcreteIntegerValue( greaterThan, constraintValue )
 {
 	if( greaterThan )
-		return Random.integer(constraintValue,constraintValue+10)(engine);
+		return Random.integer(constraintValue+1,constraintValue+10)(engine);
 	else
-		return Random.integer(constraintValue-10,constraintValue)(engine);
+		return Random.integer(constraintValue-10,constraintValue-1)(engine);
 }
 
 function Constraint(properties)
@@ -75,8 +75,10 @@ function generateTestCases()
 {
 
 	var content = "var subject = require('./subject.js')\nvar mock = require('mock-fs');\n";
+	operators = ['==', '>=', '<=', '!=', '>', '<'];
 	for ( var funcName in functionConstraints )
 	{
+		console.log(funcName)
 		var params = {};
 
 		// initialize params
@@ -85,6 +87,7 @@ function generateTestCases()
 			var paramName = functionConstraints[funcName].params[i];
 			//params[paramName] = '\'' + faker.phone.phoneNumber()+'\'';
 			params[paramName] = '\'\'';
+			// console.log(params[paramName]);
 		}
 
 		//console.log( params );
@@ -101,12 +104,51 @@ function generateTestCases()
 			var constraint = constraints[c];
 			if( params.hasOwnProperty( constraint.ident ) )
 			{
-				params[constraint.ident] = constraint.value;
+				params[constraint.ident] = [constraint.value];
+				if(operators.indexOf(constraint.operator) > -1 && constraint.kind == 'integer')
+				{
+					params[constraint.ident].push(createConcreteIntegerValue(true, constraint.value))
+					params[constraint.ident].push(createConcreteIntegerValue(false, constraint.value))
+				}
 			}
 		}
+		var params_list = [Object.keys(params).map( function(k) 
+			{	
+				if(typeof params[k] != 'string')
+				{
+					return params[k][0];	
+				}
+				else
+				{
+					return params[k];
+				}
+			})]
+		for( var i = 0; i < Object.keys(params).length; i++)
+		{
+			params_list = addMoreTestCase(params_list, params, 0);	
+		}
+		
+		console.log(params_list);
+
+
 
 		// Prepare function arguments.
-		var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+		var args = Object.keys(params).map( function(k) 
+			{
+				if(typeof params[k] != 'string')
+				{
+					return params[k][0];	
+				}
+				else
+				{
+					return params[k];
+				}
+			}).join(",");
+		var args_list = [args];
+		for(var i = 0; i < params_list.length; i++)
+		{
+			args_list.push(params_list[i].join(","));
+		}
 		if( pathExists || fileWithContent )
 		{
 			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args);
@@ -115,14 +157,42 @@ function generateTestCases()
 		else
 		{
 			// Emit simple test case.
-			content += "subject.{0}({1});\n".format(funcName, args );
+			for(var i = 0; i < args_list.length; i++)
+			{
+				content += "subject.{0}({1});\n".format(funcName, args_list[i] );	
+			}
 		}
-
+		console.log("---------------");
 	}
 
 
 	fs.writeFileSync('test.js', content, "utf8");
 
+}
+
+function addMoreTestCase(params_list, params, i)
+{	
+	// console.log(Object.keys(params))
+	var key = Object.keys(params)[i];
+	// console.log(params[key])
+	var more_params = [];
+	for(var c = 0; c < 1; c++)
+	{	
+		// console.log(typeof params[key]);
+		if(typeof params[key] != 'string')
+		{
+			for(var d = 0; d < params[key].length; d++)
+			{
+				var tmp = params_list[c].slice();
+				tmp[i] = params[key][d];
+				// console.log(tmp);
+				more_params.push(tmp);
+			}
+		}
+		
+	}
+	// console.log(more_params);
+	return params_list.concat(more_params);
 }
 
 function generateMockFsTestCases (pathExists,fileWithContent,funcName,args) 
@@ -154,7 +224,7 @@ function constraints(filePath)
 {
    var buf = fs.readFileSync(filePath, "utf8");
 	var result = esprima.parse(buf, options);
-
+	// console.log(buf);
 	traverse(result, function (node) 
 	{
 		if (node.type === 'FunctionDeclaration') 
@@ -167,15 +237,29 @@ function constraints(filePath)
 			functionConstraints[funcName] = {constraints:[], params: params};
 
 			// Check for expressions using argument.
+			operators = ['==', '>=', '<=', '!=', '>', '<'];
+
 			traverse(node, function(child)
 			{
-				if( child.type === 'BinaryExpression' && child.operator == "==")
+				if( child.type === 'BinaryExpression' && operators.indexOf(child.operator) > -1)
 				{
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
 					{
 						// get expression from original source code:
+
 						var expression = buf.substring(child.range[0], child.range[1]);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+
+						var a = parseInt(rightHand);
+						var kind;
+						if (isNaN(a))
+						{
+							kind = "string";
+						}
+						else
+						{
+							kind = "integer";
+						}
 
 						functionConstraints[funcName].constraints.push( 
 							new Constraint(
@@ -183,12 +267,13 @@ function constraints(filePath)
 								ident: child.left.name,
 								value: rightHand,
 								funcName: funcName,
-								kind: "integer",
+								kind: kind,
 								operator : child.operator,
 								expression: expression
 							}));
 					}
 				}
+
 
 				if( child.type == "CallExpression" && 
 					 child.callee.property &&
