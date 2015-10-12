@@ -33,6 +33,13 @@ function createConcreteIntegerValue( greaterThan, constraintValue )
 		return Random.integer(constraintValue-10,constraintValue-1)(engine);
 }
 
+function createRandomString(n)
+{
+	var str = Random.string()(engine, n);
+	// console.log("str" + str);
+	return str
+}
+
 function Constraint(properties)
 {
 	this.ident = properties.ident;
@@ -90,7 +97,7 @@ function generateTestCases()
 			// console.log(params[paramName]);
 		}
 
-		//console.log( params );
+		
 
 		// update parameter values based on known constraints.
 		var constraints = functionConstraints[funcName].constraints;
@@ -110,8 +117,15 @@ function generateTestCases()
 					params[constraint.ident].push(createConcreteIntegerValue(true, constraint.value))
 					params[constraint.ident].push(createConcreteIntegerValue(false, constraint.value))
 				}
+				else if(constraint.kind == 'string')
+				{	
+					var str = createRandomString(10);
+					console.log(str);
+					params[constraint.ident].push( "'" + str + "'");
+				}
 			}
 		}
+		console.log( params );
 		var params_list = [Object.keys(params).map( function(k) 
 			{	
 				if(typeof params[k] != 'string')
@@ -125,10 +139,10 @@ function generateTestCases()
 			})]
 		for( var i = 0; i < Object.keys(params).length; i++)
 		{
-			params_list = addMoreTestCase(params_list, params, 0);	
+			params_list = addMoreTestCase(params_list, params, i);	
 		}
 		
-		console.log(params_list);
+		// console.log(params_list);
 
 
 
@@ -176,7 +190,7 @@ function addMoreTestCase(params_list, params, i)
 	var key = Object.keys(params)[i];
 	// console.log(params[key])
 	var more_params = [];
-	for(var c = 0; c < 1; c++)
+	for(var c = 0; c < params_list.length; c++)
 	{	
 		// console.log(typeof params[key]);
 		if(typeof params[key] != 'string')
@@ -240,9 +254,16 @@ function constraints(filePath)
 			operators = ['==', '>=', '<=', '!=', '>', '<'];
 
 			traverse(node, function(child)
-			{
+			{	
+
 				if( child.type === 'BinaryExpression' && operators.indexOf(child.operator) > -1)
 				{
+					
+					if( child.left.type == 'CallExpression')
+					{
+						// console.log(child.type, child.left, child.operator, child.right);	
+						console.log(child.left.callee.object.name);
+					}
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
 					{
 						// get expression from original source code:
