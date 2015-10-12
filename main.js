@@ -92,9 +92,9 @@ function generateTestCases()
 		for (var i =0; i < functionConstraints[funcName].params.length; i++ )
 		{
 			var paramName = functionConstraints[funcName].params[i];
-			//params[paramName] = '\'' + faker.phone.phoneNumber()+'\'';
-			params[paramName] = '\'\'';
-			// console.log(params[paramName]);
+			
+			params[paramName] = '\'\'';	
+			
 		}
 
 		
@@ -114,8 +114,8 @@ function generateTestCases()
 				params[constraint.ident] = [constraint.value];
 				if(operators.indexOf(constraint.operator) > -1 && constraint.kind == 'integer')
 				{
-					params[constraint.ident].push(createConcreteIntegerValue(true, constraint.value))
-					params[constraint.ident].push(createConcreteIntegerValue(false, constraint.value))
+					params[constraint.ident].push(createConcreteIntegerValue(true, constraint.value));
+					params[constraint.ident].push(createConcreteIntegerValue(false, constraint.value));
 				}
 				else if(constraint.kind == 'string')
 				{	
@@ -123,9 +123,13 @@ function generateTestCases()
 					console.log(str);
 					params[constraint.ident].push( "'" + str + "'");
 				}
+				else if(constraint.kind == 'bool')
+				{
+					params[constraint.ident].push(true);
+					params[constraint.ident].push(false);
+				}
 			}
 		}
-		console.log( params );
 		var params_list = [Object.keys(params).map( function(k) 
 			{	
 				if(typeof params[k] != 'string')
@@ -141,10 +145,6 @@ function generateTestCases()
 		{
 			params_list = addMoreTestCase(params_list, params, i);	
 		}
-		
-		// console.log(params_list);
-
-		
 
 		// Prepare function arguments.
 		var args = Object.keys(params).map( function(k) 
@@ -172,6 +172,9 @@ function generateTestCases()
 		{
 			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args);
 			// Bonus...generate constraint variations test cases....
+			content += generateMockFsTestCases(!pathExists,fileWithContent,funcName, args);
+			content += generateMockFsTestCases(pathExists,!fileWithContent,funcName, args);
+			content += generateMockFsTestCases(!pathExists,!fileWithContent,funcName, args);
 		}
 		else
 		{
@@ -197,14 +200,12 @@ function addMoreTestCase(params_list, params, i)
 	var more_params = [];
 	for(var c = 0; c < params_list.length; c++)
 	{	
-		// console.log(typeof params[key]);
 		if(typeof params[key] != 'string')
 		{
 			for(var d = 0; d < params[key].length; d++)
 			{
 				var tmp = params_list[c].slice();
 				tmp[i] = params[key][d];
-				// console.log(tmp);
 				more_params.push(tmp);
 			}
 		}
@@ -221,7 +222,39 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 	var mergedFS = {};
 	if( pathExists )
 	{
-		for (var attrname in mockFileLibrary.pathExists) { mergedFS[attrname] = mockFileLibrary.pathExists[attrname]; }
+		for (var attrname in mockFileLibrary.pathExists) 
+		{ 
+			mergedFS[attrname] = mockFileLibrary.pathExists[attrname];
+		}
+	}
+	if( fileWithContent )
+	{
+		for (var attrname in mockFileLibrary.fileWithContent) 
+		{ 
+			mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname]; 
+			console.log(attrname);
+		}
+	}
+	testCase += 
+	"mock(" +
+		JSON.stringify(mergedFS)
+		+
+	");\n";
+
+	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
+	testCase+="mock.restore();\n";
+
+	var mergedFS = {};
+	if( pathExists )
+	{
+		for (var attrname in mockFileLibrary.pathExists) 
+		{
+			mergedFS[attrname] = mockFileLibrary.pathExists[attrname]; 
+			for (var attrname2 in mockFileLibrary.fileWithContent) 
+			{ 
+				mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname2]; 
+			}
+		}
 	}
 	if( fileWithContent )
 	{
@@ -236,8 +269,43 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 
 	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
 	testCase+="mock.restore();\n";
+
+
+	var mergedFS = {};
+	if( pathExists )
+	{
+		for (var attrname in mockFileLibrary.pathExists) 
+		{
+			mergedFS[attrname] = mockFileLibrary.pathExists[attrname]; 
+			for (var attrname2 in mockFileLibrary.fileWithContent) 
+			{ 
+				mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname2]; 
+				// console.log(attrname);
+			}
+		}
+	}
+	if( fileWithContent )
+	{
+		for (var attrname in mockFileLibrary.fileWithContent) 
+			{ 
+				mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname]; 
+				mergedFS[attrname]["file1"] = "";
+			}
+	}
+
+	testCase += 
+	"mock(" +
+		JSON.stringify(mergedFS)
+		+
+	");\n";
+
+	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
+	testCase+="mock.restore();\n";
+
+
 	return testCase;
 }
+
 
 function constraints(filePath)
 {
@@ -252,15 +320,27 @@ function constraints(filePath)
 			console.log("Line : {0} Function: {1}".format(node.loc.start.line, funcName ));
 
 			var params = node.params.map(function(p) {return p.name});
+			// console.log(params);
 
 			functionConstraints[funcName] = {constraints:[], params: params};
-
+			if( params.indexOf('phoneNumber') > -1 )
+			{
+				functionConstraints[funcName].constraints.push(
+					new Constraint(
+					{
+						ident: 'phoneNumber',
+						value: '\'' + faker.phone.phoneNumber()+'\'',
+						funcName: funcName,
+						kind: 'phoneNumber',
+						operator : undefined,
+						expression: undefined
+					}));
+			}
 			// Check for expressions using argument.
 			operators = ['==', '>=', '<=', '!=', '>', '<'];
 
 			traverse(node, function(child)
 			{	
-
 				if( child.type === 'BinaryExpression' && operators.indexOf(child.operator) > -1)
 				{
 					
@@ -300,6 +380,30 @@ function constraints(filePath)
 					}
 				}
 
+				var comparators = ['||', '&&'];
+				if( child.type === 'LogicalExpression' && comparators.indexOf(child.operator) > -1)
+				{	
+					console.log(child);
+					if(child.left.type == 'UnaryExpression' && params.indexOf( child.left.argument.name ) > -1)
+					{
+						// get expression from original source code:
+
+						var expression = buf.substring(child.range[0], child.range[1]);
+						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+						var kind = 'bool';
+
+						functionConstraints[funcName].constraints.push( 
+							new Constraint(
+							{
+								ident: child.left.argument.name,
+								value: false,
+								funcName: funcName,
+								kind: kind,
+								operator : child.operator,
+								expression: expression
+							}));
+					}
+				}
 
 				if( child.type == "CallExpression" && 
 					 child.callee.property &&
