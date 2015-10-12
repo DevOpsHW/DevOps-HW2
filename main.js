@@ -144,7 +144,7 @@ function generateTestCases()
 		
 		// console.log(params_list);
 
-
+		
 
 		// Prepare function arguments.
 		var args = Object.keys(params).map( function(k) 
@@ -163,6 +163,11 @@ function generateTestCases()
 		{
 			args_list.push(params_list[i].join(","));
 		}
+
+		args_list = args_list.filter(function(item, pos) {
+    						return args_list.indexOf(item) == pos;
+						})
+
 		if( pathExists || fileWithContent )
 		{
 			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args);
