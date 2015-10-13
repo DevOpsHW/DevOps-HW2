@@ -67,16 +67,39 @@ var mockFileLibrary =
 {
 	pathExists:
 	{
-		'path/fileExists': {}
+		'path/fileExists': {file1: ''},
+		// 'path/fileWithContent':{file1: 'text content'}
 	},
 	fileWithContent:
 	{
 		pathContent: 
 		{	
   			file1: 'text content',
-		}
+		},
+		// pathContentEmpty:{file2: ''},
 	}
 };
+
+
+function generateFileLibrary()
+{
+	if(Random.bool(0.5)(engine))
+	{
+		mockFileLibrary['pathExists']['path/fileExists'] = {}
+	}
+	else
+	{
+		mockFileLibrary['pathExists']['path/fileExists'] = {file1: ''}	
+	}
+	if(Random.bool(0.5)(engine))
+	{
+		mockFileLibrary['fileWithContent']['pathContent'] = {file1: 'text content'}
+	}
+	else
+	{
+		mockFileLibrary['fileWithContent']['pathContent'] = {file1: ''}
+	}
+}
 
 function generateTestCases()
 {
@@ -85,7 +108,7 @@ function generateTestCases()
 	operators = ['==', '>=', '<=', '!=', '>', '<'];
 	for ( var funcName in functionConstraints )
 	{
-		console.log(funcName)
+		// console.log(funcName)
 		var params = {};
 
 		// initialize params
@@ -93,12 +116,9 @@ function generateTestCases()
 		{
 			var paramName = functionConstraints[funcName].params[i];
 			
-			params[paramName] = '\'\'';	
+			params[paramName] = ['\'\''];
 			
 		}
-
-		
-
 		// update parameter values based on known constraints.
 		var constraints = functionConstraints[funcName].constraints;
 		// Handle global constraints...
@@ -111,7 +131,16 @@ function generateTestCases()
 			var constraint = constraints[c];
 			if( params.hasOwnProperty( constraint.ident ) )
 			{
-				params[constraint.ident] = [constraint.value];
+				if( params[paramName][0] == '\'\'')
+				{
+					
+					params[constraint.ident] = [constraint.value];
+				}
+				else
+				{
+					params[constraint.ident].push(constraint.value);		
+				}
+
 				if(operators.indexOf(constraint.operator) > -1 && constraint.kind == 'integer')
 				{
 					params[constraint.ident].push(createConcreteIntegerValue(true, constraint.value));
@@ -120,16 +149,42 @@ function generateTestCases()
 				else if(constraint.kind == 'string')
 				{	
 					var str = createRandomString(10);
-					console.log(str);
+					// console.log(str);
 					params[constraint.ident].push( "'" + str + "'");
 				}
 				else if(constraint.kind == 'bool')
 				{
 					params[constraint.ident].push(true);
 					params[constraint.ident].push(false);
+					// var options = {'normalize': true}
+					// params[constraint.ident].push(options);
+					// params[constraint.ident].push({'normalize': false});
+				}
+				if(constraint.kind == 'indexOf')
+				{	
+					var str = createRandomString(5);
+					params[constraint.ident].push("'" + str + constraint.value + "'");
+					params[constraint.ident].push(constraint.value);	
 				}
 			}
 		}
+		
+		var keys = Object.keys(params)
+		// Little modifications to specific params
+		for(var i = 0; i < keys.length; i++)
+		{
+			// console.log(params[keys[i]].indexOf('\'path/fileExists\'') > -1);
+			if(params[keys[i]].indexOf('\'path/fileExists\'') > -1 && params[keys[i]].indexOf('\'pathContent/file1\'') > -1)
+			{
+				params[keys[i]] = ['\'pathContent/file1\''];
+			}
+		}
+
+		if(keys.indexOf('phoneNumber') > -1)
+		{
+			params['phoneNumber'].push('\'1-212-458-5294\'')
+		}
+		console.log(params);
 		var params_list = [Object.keys(params).map( function(k) 
 			{	
 				if(typeof params[k] != 'string')
@@ -170,11 +225,14 @@ function generateTestCases()
 
 		if( pathExists || fileWithContent )
 		{
-			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args);
-			// Bonus...generate constraint variations test cases....
-			content += generateMockFsTestCases(!pathExists,fileWithContent,funcName, args);
-			content += generateMockFsTestCases(pathExists,!fileWithContent,funcName, args);
-			content += generateMockFsTestCases(!pathExists,!fileWithContent,funcName, args);
+			for(var i = 0; i < args_list.length; i++)
+			{
+				content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args_list[i]);
+				// Bonus...generate constraint variations test cases....
+				content += generateMockFsTestCases(!pathExists,fileWithContent,funcName, args_list[i]);
+				content += generateMockFsTestCases(pathExists,!fileWithContent,funcName, args_list[i]);
+				content += generateMockFsTestCases(!pathExists,!fileWithContent,funcName, args_list[i]);
+			}
 		}
 		else
 		{
@@ -184,7 +242,7 @@ function generateTestCases()
 				content += "subject.{0}({1});\n".format(funcName, args_list[i] );	
 			}
 		}
-		console.log("---------------");
+		// console.log("---------------");
 	}
 
 
@@ -219,8 +277,11 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 {
 	var testCase = "";
 	// Build mock file system based on constraints.
-	var mergedFS = {};
-	if( pathExists )
+	for(var i = 0; i < 20; i++)
+	{
+		var mergedFS = {};
+		generateFileLibrary();
+		if( pathExists )
 	{
 		for (var attrname in mockFileLibrary.pathExists) 
 		{ 
@@ -232,7 +293,7 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 		for (var attrname in mockFileLibrary.fileWithContent) 
 		{ 
 			mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname]; 
-			console.log(attrname);
+			// console.log(attrname);
 		}
 	}
 	testCase += 
@@ -243,66 +304,7 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 
 	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
 	testCase+="mock.restore();\n";
-
-	var mergedFS = {};
-	if( pathExists )
-	{
-		for (var attrname in mockFileLibrary.pathExists) 
-		{
-			mergedFS[attrname] = mockFileLibrary.pathExists[attrname]; 
-			for (var attrname2 in mockFileLibrary.fileWithContent) 
-			{ 
-				mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname2]; 
-			}
-		}
 	}
-	if( fileWithContent )
-	{
-		for (var attrname in mockFileLibrary.fileWithContent) { mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname]; }
-	}
-
-	testCase += 
-	"mock(" +
-		JSON.stringify(mergedFS)
-		+
-	");\n";
-
-	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
-	testCase+="mock.restore();\n";
-
-
-	var mergedFS = {};
-	if( pathExists )
-	{
-		for (var attrname in mockFileLibrary.pathExists) 
-		{
-			mergedFS[attrname] = mockFileLibrary.pathExists[attrname]; 
-			for (var attrname2 in mockFileLibrary.fileWithContent) 
-			{ 
-				mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname2]; 
-				// console.log(attrname);
-			}
-		}
-	}
-	if( fileWithContent )
-	{
-		for (var attrname in mockFileLibrary.fileWithContent) 
-			{ 
-				mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname]; 
-				mergedFS[attrname]["file1"] = "";
-			}
-	}
-
-	testCase += 
-	"mock(" +
-		JSON.stringify(mergedFS)
-		+
-	");\n";
-
-	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
-	testCase+="mock.restore();\n";
-
-
 	return testCase;
 }
 
@@ -344,15 +346,27 @@ function constraints(filePath)
 				if( child.type === 'BinaryExpression' && operators.indexOf(child.operator) > -1)
 				{
 					
-					if( child.left.type == 'CallExpression')
+					if( child.left.type == 'CallExpression' && child.left.callee.property.name == 'indexOf')
 					{
-						// console.log(child.type, child.left, child.operator, child.right);	
-						console.log(child.left.callee.object.name);
+						// console.log(child.type, child.left, child.operator, child.right);
+						var expression = buf.substring(child.range[0], child.range[1]);
+						argument = child.left.arguments[0].raw;	
+						idx = child.right.value;
+						// console.log(child);
+						functionConstraints[funcName].constraints.push( 
+							new Constraint(
+							{
+								ident: child.left.callee.object.name,
+								value: argument,
+								funcName: funcName,
+								kind: 'indexOf',
+								operator : child.operator,
+								expression: expression
+							}));
 					}
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
 					{
 						// get expression from original source code:
-
 						var expression = buf.substring(child.range[0], child.range[1]);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
 
@@ -383,7 +397,7 @@ function constraints(filePath)
 				var comparators = ['||', '&&'];
 				if( child.type === 'LogicalExpression' && comparators.indexOf(child.operator) > -1)
 				{	
-					console.log(child);
+					// console.log(child);
 					if(child.left.type == 'UnaryExpression' && params.indexOf( child.left.argument.name ) > -1)
 					{
 						// get expression from original source code:
