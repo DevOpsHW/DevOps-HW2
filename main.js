@@ -152,6 +152,8 @@ function generateTestCases()
 				{
 					params[constraint.ident].push(true);
 					params[constraint.ident].push(false);
+					params[constraint.ident].push("{'normalize': false}");
+					params[constraint.ident].push("{'normalize': true}");
 				}
 				if(constraint.kind == 'indexOf')
 				{	
