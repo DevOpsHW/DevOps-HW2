@@ -36,7 +36,6 @@ function createConcreteIntegerValue( greaterThan, constraintValue )
 function createRandomString(n)
 {
 	var str = Random.string()(engine, n);
-	// console.log("str" + str);
 	return str
 }
 
@@ -68,7 +67,6 @@ var mockFileLibrary =
 	pathExists:
 	{
 		'path/fileExists': {file1: ''},
-		// 'path/fileWithContent':{file1: 'text content'}
 	},
 	fileWithContent:
 	{
@@ -76,7 +74,6 @@ var mockFileLibrary =
 		{	
   			file1: 'text content',
 		},
-		// pathContentEmpty:{file2: ''},
 	}
 };
 
@@ -149,16 +146,12 @@ function generateTestCases()
 				else if(constraint.kind == 'string')
 				{	
 					var str = createRandomString(10);
-					// console.log(str);
 					params[constraint.ident].push( "'" + str + "'");
 				}
 				else if(constraint.kind == 'bool')
 				{
 					params[constraint.ident].push(true);
 					params[constraint.ident].push(false);
-					// var options = {'normalize': true}
-					// params[constraint.ident].push(options);
-					// params[constraint.ident].push({'normalize': false});
 				}
 				if(constraint.kind == 'indexOf')
 				{	
@@ -173,7 +166,6 @@ function generateTestCases()
 		// Little modifications to specific params
 		for(var i = 0; i < keys.length; i++)
 		{
-			// console.log(params[keys[i]].indexOf('\'path/fileExists\'') > -1);
 			if(params[keys[i]].indexOf('\'path/fileExists\'') > -1 && params[keys[i]].indexOf('\'pathContent/file1\'') > -1)
 			{
 				params[keys[i]] = ['\'pathContent/file1\''];
@@ -184,7 +176,7 @@ function generateTestCases()
 		{
 			params['phoneNumber'].push('\'1-212-458-5294\'')
 		}
-		console.log(params);
+		// console.log(params);
 		var params_list = [Object.keys(params).map( function(k) 
 			{	
 				if(typeof params[k] != 'string')
@@ -242,19 +234,13 @@ function generateTestCases()
 				content += "subject.{0}({1});\n".format(funcName, args_list[i] );	
 			}
 		}
-		// console.log("---------------");
 	}
-
-
 	fs.writeFileSync('test.js', content, "utf8");
-
 }
 
 function addMoreTestCase(params_list, params, i)
 {	
-	// console.log(Object.keys(params))
 	var key = Object.keys(params)[i];
-	// console.log(params[key])
 	var more_params = [];
 	for(var c = 0; c < params_list.length; c++)
 	{	
@@ -269,7 +255,6 @@ function addMoreTestCase(params_list, params, i)
 		}
 		
 	}
-	// console.log(more_params);
 	return params_list.concat(more_params);
 }
 
@@ -293,7 +278,6 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 		for (var attrname in mockFileLibrary.fileWithContent) 
 		{ 
 			mergedFS[attrname] = mockFileLibrary.fileWithContent[attrname]; 
-			// console.log(attrname);
 		}
 	}
 	testCase += 
@@ -313,7 +297,6 @@ function constraints(filePath)
 {
    var buf = fs.readFileSync(filePath, "utf8");
 	var result = esprima.parse(buf, options);
-	// console.log(buf);
 	traverse(result, function (node) 
 	{
 		if (node.type === 'FunctionDeclaration') 
@@ -322,7 +305,6 @@ function constraints(filePath)
 			console.log("Line : {0} Function: {1}".format(node.loc.start.line, funcName ));
 
 			var params = node.params.map(function(p) {return p.name});
-			// console.log(params);
 
 			functionConstraints[funcName] = {constraints:[], params: params};
 			if( params.indexOf('phoneNumber') > -1 )
@@ -348,11 +330,9 @@ function constraints(filePath)
 					
 					if( child.left.type == 'CallExpression' && child.left.callee.property.name == 'indexOf')
 					{
-						// console.log(child.type, child.left, child.operator, child.right);
 						var expression = buf.substring(child.range[0], child.range[1]);
 						argument = child.left.arguments[0].raw;	
 						idx = child.right.value;
-						// console.log(child);
 						functionConstraints[funcName].constraints.push( 
 							new Constraint(
 							{
@@ -397,11 +377,9 @@ function constraints(filePath)
 				var comparators = ['||', '&&'];
 				if( child.type === 'LogicalExpression' && comparators.indexOf(child.operator) > -1)
 				{	
-					// console.log(child);
 					if(child.left.type == 'UnaryExpression' && params.indexOf( child.left.argument.name ) > -1)
 					{
 						// get expression from original source code:
-
 						var expression = buf.substring(child.range[0], child.range[1]);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
 						var kind = 'bool';
@@ -465,9 +443,7 @@ function constraints(filePath)
 				}
 
 			});
-
 			console.log( functionConstraints[funcName]);
-
 		}
 	});
 }
