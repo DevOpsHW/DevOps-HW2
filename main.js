@@ -148,25 +148,15 @@ function generateTestCases()
 					var str = createRandomString(10);
 					params[constraint.ident].push( "'" + str + "'");
 				}
-				else if(constraint.kind == 'bool')
+				else if(constraint.kind == 'unary')
 				{
 					params[constraint.ident].push(true);
 					params[constraint.ident].push(false);
-					// params[constraint.ident].push("{'normalize': false}");
-					// params[constraint.ident].push("{'normalize': true}");
 				}
-				else if(constraint.kind == 'objectBool')
+				else if(constraint.kind == 'unaryObject')
 				{
-					var ob = constraint.value;
-					var key = Object.keys(ob)
-					console.log(ob);
-					// ob[key[0]] = false;
-					console.log(ob, '<-------');
-					params[constraint.ident].push(ob);
-					// ob[ele] = false;
-					console.log(ob, '<-------');
-					params[constraint.ident].push(ob);
-					
+					params[constraint.ident].push("\{{0}: true\}".format(constraint.operator));
+					params[constraint.ident].push("\{{0}: false\}".format(constraint.operator));
 					
 				}
 				if(constraint.kind == 'indexOf')
@@ -412,7 +402,7 @@ function constraints(filePath)
 					if( child.argument.type == 'MemberExpression' && params.indexOf(child.argument.object.name) > -1)
 					{
 						var expression = buf.substring(child.range[0], child.range[1]);
-						var kind = 'unary';
+						var kind = 'unaryObject';
 						functionConstraints[funcName].constraints.push( 
 							new Constraint(
 							{
@@ -420,7 +410,7 @@ function constraints(filePath)
 								value: "\{ {0} : {1}\}".format(child.argument.property.name, true),
 								funcName: funcName,
 								kind: kind,
-								operator : child.operator,
+								operator : child.argument.property.name,
 								expression: expression
 							}));
 					}
