@@ -13,7 +13,7 @@ function main()
 
 	if( args.length == 0 )
 	{
-		args = ["mystery.js"];
+		args = ["subject.js"];
 	}
 	var filePath = args[0];
 
@@ -101,7 +101,7 @@ function generateFileLibrary()
 function generateTestCases()
 {
 
-	var content = "var subject = require('./mystery.js')\nvar mock = require('mock-fs');\n";
+	var content = "var subject = require('./subject.js')\nvar mock = require('mock-fs');\n";
 	operators = ['==', '>=', '<=', '!=', '>', '<'];
 	for ( var funcName in functionConstraints )
 	{
@@ -176,11 +176,6 @@ function generateTestCases()
 			{
 				params[keys[i]] = ['\'pathContent/file1\''];
 			}
-		}
-
-		if(keys.indexOf('phoneNumber') > -1)
-		{
-			params['phoneNumber'].push('\'1-212-458-5294\'')
 		}
 		// console.log(params);
 		var params_list = [Object.keys(params).map( function(k) 
@@ -374,6 +369,24 @@ function constraints(filePath)
 								value: rightHand,
 								funcName: funcName,
 								kind: kind,
+								operator : child.operator,
+								expression: expression
+							}));
+					}
+					if( child.left.type == 'Identifier' && child.left.name == 'area')
+					{
+						console.log(child);
+						var expression = buf.substring(child.range[0], child.range[1]);
+						// var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+						var code = child.right.value;
+
+						functionConstraints[funcName].constraints.push( 
+							new Constraint(
+							{
+								ident: 'phoneNumber',
+								value: '\'1-{0}-458-5294\''.format(code),
+								funcName: funcName,
+								kind: 'phoneNumber',
 								operator : child.operator,
 								expression: expression
 							}));
