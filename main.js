@@ -13,7 +13,7 @@ function main()
 
 	if( args.length == 0 )
 	{
-		args = ["subject.js"];
+		args = ["mystery.js"];
 	}
 	var filePath = args[0];
 
@@ -101,7 +101,7 @@ function generateFileLibrary()
 function generateTestCases()
 {
 
-	var content = "var subject = require('./subject.js')\nvar mock = require('mock-fs');\n";
+	var content = "var subject = require('./mystery.js')\nvar mock = require('mock-fs');\n";
 	operators = ['==', '>=', '<=', '!=', '>', '<'];
 	for ( var funcName in functionConstraints )
 	{
@@ -152,8 +152,22 @@ function generateTestCases()
 				{
 					params[constraint.ident].push(true);
 					params[constraint.ident].push(false);
-					params[constraint.ident].push("{'normalize': false}");
-					params[constraint.ident].push("{'normalize': true}");
+					// params[constraint.ident].push("{'normalize': false}");
+					// params[constraint.ident].push("{'normalize': true}");
+				}
+				else if(constraint.kind == 'objectBool')
+				{
+					var ob = constraint.value;
+					var key = Object.keys(ob)
+					console.log(ob);
+					// ob[key[0]] = false;
+					console.log(ob, '<-------');
+					params[constraint.ident].push(ob);
+					// ob[ele] = false;
+					console.log(ob, '<-------');
+					params[constraint.ident].push(ob);
+					
+					
 				}
 				if(constraint.kind == 'indexOf')
 				{	
@@ -376,21 +390,34 @@ function constraints(filePath)
 					}
 				}
 
-				var comparators = ['||', '&&'];
-				if( child.type === 'LogicalExpression' && comparators.indexOf(child.operator) > -1)
-				{	
-					if(child.left.type == 'UnaryExpression' && params.indexOf( child.left.argument.name ) > -1)
-					{
-						// get expression from original source code:
-						var expression = buf.substring(child.range[0], child.range[1]);
-						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
-						var kind = 'bool';
 
+				if( child.type == 'UnaryExpression')
+				{
+					if( child.argument.type == 'Identifier' && params.indexOf(child.argument.name) > -1 )
+					{
+						var expression = buf.substring(child.range[0], child.range[1]);
+						// var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+						var kind = 'unary';
 						functionConstraints[funcName].constraints.push( 
 							new Constraint(
 							{
-								ident: child.left.argument.name,
-								value: false,
+								ident: child.argument.name,
+								value: Random.bool(0.5)(engine),
+								funcName: funcName,
+								kind: kind,
+								operator : child.operator,
+								expression: expression
+							}));
+					}
+					if( child.argument.type == 'MemberExpression' && params.indexOf(child.argument.object.name) > -1)
+					{
+						var expression = buf.substring(child.range[0], child.range[1]);
+						var kind = 'unary';
+						functionConstraints[funcName].constraints.push( 
+							new Constraint(
+							{
+								ident: child.argument.object.name,
+								value: "\{ {0} : {1}\}".format(child.argument.property.name, true),
 								funcName: funcName,
 								kind: kind,
 								operator : child.operator,
